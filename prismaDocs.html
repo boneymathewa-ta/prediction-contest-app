@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Prisma Schema Design Guide — Sports Prediction App</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Segoe UI', system-ui, sans-serif; background: #0f1117; color: #e2e8f0; line-height: 1.7; }
+
+  .sidebar {
+    position: fixed; left: 0; top: 0; width: 240px; height: 100vh;
+    background: #1a1d27; border-right: 1px solid #2d3148; padding: 24px 0;
+    overflow-y: auto; z-index: 100;
+  }
+  .sidebar h2 { font-size: 11px; text-transform: uppercase; letter-spacing: 2px; color: #6366f1; padding: 0 20px 12px; }
+  .sidebar a {
+    display: block; padding: 8px 20px; color: #94a3b8; text-decoration: none;
+    font-size: 13px; border-left: 3px solid transparent; transition: all 0.2s;
+  }
+  .sidebar a:hover, .sidebar a.active { color: #a5b4fc; border-left-color: #6366f1; background: #1e2235; }
+  .sidebar .section-label { font-size: 10px; color: #4a5568; text-transform: uppercase; letter-spacing: 1px; padding: 16px 20px 4px; }
+
+  .main { margin-left: 240px; padding: 48px; max-width: 900px; }
+
+  .hero { background: linear-gradient(135deg, #1e2235 0%, #16213e 100%); border: 1px solid #2d3148; border-radius: 16px; padding: 40px; margin-bottom: 48px; }
+  .hero h1 { font-size: 32px; font-weight: 700; background: linear-gradient(135deg, #a5b4fc, #67e8f9); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 8px; }
+  .hero p { color: #94a3b8; font-size: 16px; }
+
+  h2.section { font-size: 22px; font-weight: 700; color: #a5b4fc; margin: 48px 0 16px; padding-bottom: 8px; border-bottom: 1px solid #2d3148; }
+  h3.sub { font-size: 16px; font-weight: 600; color: #67e8f9; margin: 28px 0 10px; }
+  h4.mini { font-size: 14px; font-weight: 600; color: #f9a8d4; margin: 20px 0 8px; }
+
+  p { color: #cbd5e1; margin-bottom: 12px; }
+  strong { color: #e2e8f0; }
+
+  .step {
+    background: #1a1d27; border: 1px solid #2d3148; border-radius: 12px;
+    padding: 24px; margin: 20px 0;
+  }
+  .step-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; background: #6366f1; border-radius: 50%;
+    font-size: 13px; font-weight: 700; margin-right: 10px; flex-shrink: 0;
+  }
+  .step-title { display: flex; align-items: center; font-size: 16px; font-weight: 600; color: #e2e8f0; margin-bottom: 12px; }
+
+  pre {
+    background: #0d1117; border: 1px solid #2d3148; border-radius: 10px;
+    padding: 20px; overflow-x: auto; margin: 12px 0; position: relative;
+  }
+  code { font-family: 'Fira Code', 'Cascadia Code', monospace; font-size: 13px; line-height: 1.8; }
+  pre code { color: #e2e8f0; }
+
+  /* Syntax highlighting */
+  .kw { color: #c084fc; }   /* keywords: model, enum */
+  .type { color: #67e8f9; } /* types: String, Int */
+  .attr { color: #86efac; } /* attributes: @id, @default */
+  .str { color: #fbbf24; }  /* strings */
+  .comment { color: #4a5568; font-style: italic; }
+  .field { color: #e2e8f0; }
+  .rel { color: #f9a8d4; }  /* relations */
+  .decorator { color: #a5b4fc; } /* @@ */
+
+  .callout {
+    border-radius: 10px; padding: 16px 20px; margin: 16px 0;
+    border-left: 4px solid;
+  }
+  .callout.info { background: #1e2a3a; border-color: #3b82f6; }
+  .callout.warn { background: #2a1f0e; border-color: #f59e0b; }
+  .callout.tip  { background: #0f2318; border-color: #22c55e; }
+  .callout.danger { background: #2a0f0f; border-color: #ef4444; }
+  .callout-title { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px; }
+  .callout.info .callout-title { color: #60a5fa; }
+  .callout.warn .callout-title { color: #fbbf24; }
+  .callout.tip  .callout-title { color: #4ade80; }
+  .callout.danger .callout-title { color: #f87171; }
+
+  table { width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 13px; }
+  th { background: #1e2235; color: #a5b4fc; padding: 10px 14px; text-align: left; font-weight: 600; border-bottom: 2px solid #2d3148; }
+  td { padding: 10px 14px; border-bottom: 1px solid #1e2235; color: #cbd5e1; vertical-align: top; }
+  tr:hover td { background: #1a1d27; }
+
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 20px;
+    font-size: 11px; font-weight: 600; margin-left: 8px;
+  }
+  .badge.new { background: #1a3320; color: #4ade80; }
+  .badge.important { background: #2a1f0e; color: #fbbf24; }
+
+  .diagram {
+    background: #0d1117; border: 1px solid #2d3148; border-radius: 10px;
+    padding: 20px; font-family: monospace; font-size: 13px; color: #94a3b8;
+    margin: 16px 0; line-height: 2;
+  }
+  .diagram .box { color: #a5b4fc; font-weight: bold; }
+  .diagram .arrow { color: #4a5568; }
+  .diagram .label { color: #67e8f9; font-style: italic; }
+
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .card { background: #1a1d27; border: 1px solid #2d3148; border-radius: 10px; padding: 18px; }
+  .card h4 { color: #a5b4fc; margin-bottom: 10px; font-size: 14px; }
+
+  .progress { display: flex; gap: 4px; margin: 16px 0; }
+  .progress-step { flex: 1; padding: 8px 12px; border-radius: 8px; font-size: 12px; font-weight: 600; text-align: center; }
+  .progress-step.done { background: #1a3320; color: #4ade80; border: 1px solid #166534; }
+  .progress-step.active { background: #1e2a4a; color: #60a5fa; border: 1px solid #1d4ed8; }
+  .progress-step.todo { background: #1a1d27; color: #4a5568; border: 1px solid #2d3148; }
+
+  @media (max-width: 768px) {
+    .sidebar { display: none; }
+    .main { margin-left: 0; padding: 24px; }
+    .two-col { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+
+<nav class="sidebar">
+  <h2>Contents</h2>
+  <a href="#thinking">1. Think First</a>
+  <a href="#setup">2. Project Setup</a>
+  <a href="#basics">3. Schema Basics</a>
+  <a href="#model1">4. Tournament Model</a>
+  <a href="#model2">5. Match Model</a>
+  <a href="#model3">6. User Model</a>
+  <a href="#relations">7. Relations Explained</a>
+  <a href="#full">8. Full Schema</a>
+  <a href="#enums">9. Enums</a>
+  <a href="#migrations">10. Migrations</a>
+  <a href="#queries">11. Queries</a>
+  <a href="#seed">12. Seed Script</a>
+  <a href="#gotchas">13. Common Mistakes</a>
+  <a href="#cursor">14. Using with Cursor</a>
+</nav>
+
+<main class="main">
+
+  <div class="hero">
+    <h1>Prisma Schema Design</h1>
+    <p>A hands-on guide for your Sports Prediction Platform — Tournament, Match, User and beyond. Built for developers using Cursor AI.</p>
+  </div>
+
+  <!-- ===== SECTION 1 ===== -->
+  <h2 class="section" id="thinking">1. Think Before You Type</h2>
+  <p>The biggest mistake developers make is opening VS Code before thinking. Prisma schema errors are cheap to fix. Logic errors discovered on Day 3 are not.</p>
+
+  <p>Answer these questions <strong>in plain English</strong> first:</p>
+
+  <div class="two-col">
+    <div class="card">
+      <h4>🏆 Tournament</h4>
+      <p>Has a name, sport type, start/end dates.<br>Contains many <strong>Matches</strong>.<br>Can be active or completed.</p>
+    </div>
+    <div class="card">
+      <h4>⚽ Match</h4>
+      <p>Belongs to one Tournament.<br>Has two teams, a date/time.<br>Has one <strong>Contest</strong>.<br>Has a result (or not yet).</p>
+    </div>
+    <div class="card">
+      <h4>🎯 Contest</h4>
+      <p>Belongs to one Match.<br>Has many <strong>Questions</strong>.<br>Has an expiry time.<br>Can be open or closed.</p>
+    </div>
+    <div class="card">
+      <h4>👤 User</h4>
+      <p>Logs in via SSO (Google).<br>Submits <strong>Predictions</strong>.<br>Earns points.<br>Appears on Leaderboard.</p>
+    </div>
+  </div>
+
+  <div class="diagram">
+    <span class="box">Tournament</span> <span class="arrow">──has many──▶</span> <span class="box">Match</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">└──has one──▶</span> <span class="box">Contest</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">└──has many──▶</span> <span class="box">Question</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">└──has many──▶</span> <span class="box">Prediction</span> <span class="arrow">◀──belongs to──</span> <span class="box">User</span>
+  </div>
+
+  <div class="callout warn">
+    <div class="callout-title">⚠️ Key Design Decision</div>
+    <p>A <strong>Prediction</strong> belongs to both a <strong>Question</strong> and a <strong>User</strong>. One user can only submit one prediction per question (upsert on change). This is your most critical constraint — get it wrong and your scoring breaks.</p>
+  </div>
+
+  <!-- ===== SECTION 2 ===== -->
+  <h2 class="section" id="setup">2. Project Setup Commands</h2>
+
+  <p>Run these commands in your terminal to start a new practice project:</p>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">1</span> Create project & install Prisma</div>
+    <pre><code>mkdir sports-prediction && cd sports-prediction
+npm init -y
+npm install prisma @prisma/client
+npm install -D typescript ts-node @types/node
+npx prisma init</code></pre>
+    <p style="margin-top:10px; color:#94a3b8; font-size:13px;">This creates a <code>prisma/</code> folder with <code>schema.prisma</code> and a <code>.env</code> file.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">2</span> Set your database URL in .env</div>
+    <pre><code><span class="comment"># .env</span>
+<span class="str">DATABASE_URL</span>=<span class="str">"postgresql://username:password@localhost:5432/sports_prediction"</span>
+
+<span class="comment"># Or use Railway free tier — spin up Postgres in 2 min at railway.app</span>
+<span class="comment"># They give you a connection string to paste here directly</span></code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">3</span> Folder structure you'll have</div>
+    <pre><code>sports-prediction/
+├── prisma/
+│   ├── schema.prisma    ← Your models live here
+│   └── seed.ts          ← You'll create this later
+├── src/
+│   └── queries.ts       ← Practice queries
+├── .env
+└── package.json</code></pre>
+  </div>
+
+  <!-- ===== SECTION 3 ===== -->
+  <h2 class="section" id="basics">3. Schema File Basics</h2>
+
+  <p>Every <code>schema.prisma</code> starts with two blocks before any models:</p>
+
+  <pre><code><span class="comment">// prisma/schema.prisma</span>
+
+<span class="comment">// 1. Tells Prisma which database to use</span>
+<span class="kw">datasource</span> <span class="field">db</span> {
+  <span class="field">provider</span> = <span class="str">"postgresql"</span>
+  <span class="field">url</span>      = <span class="field">env</span>(<span class="str">"DATABASE_URL"</span>)
+}
+
+<span class="comment">// 2. Tells Prisma how to generate its client code</span>
+<span class="kw">generator</span> <span class="field">client</span> {
+  <span class="field">provider</span> = <span class="str">"prisma-client-js"</span>
+}</code></pre>
+
+  <p>After these two blocks, you define your <strong>models</strong>. Each model = one database table.</p>
+
+  <h3 class="sub">Anatomy of a Model Field</h3>
+  <pre><code><span class="kw">model</span> <span class="type">Example</span> {
+  <span class="comment">//  fieldName    DataType   Attributes</span>
+      <span class="field">id</span>          <span class="type">String</span>     <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+      <span class="field">name</span>        <span class="type">String</span>
+      <span class="field">count</span>       <span class="type">Int</span>        <span class="attr">@default</span>(<span class="field">0</span>)
+      <span class="field">isActive</span>    <span class="type">Boolean</span>    <span class="attr">@default</span>(<span class="field">true</span>)
+      <span class="field">score</span>       <span class="type">Float?</span>     <span class="comment">// ? means optional (nullable)</span>
+      <span class="field">createdAt</span>   <span class="type">DateTime</span>   <span class="attr">@default</span>(<span class="field">now</span>())
+      <span class="field">updatedAt</span>   <span class="type">DateTime</span>   <span class="attr">@updatedAt</span>
+}</code></pre>
+
+  <table>
+    <thead><tr><th>Prisma Type</th><th>Maps to SQL</th><th>When to use</th></tr></thead>
+    <tbody>
+      <tr><td><code>String</code></td><td>VARCHAR / TEXT</td><td>Names, descriptions, IDs from external systems</td></tr>
+      <tr><td><code>Int</code></td><td>INTEGER</td><td>Counts, points, quantities</td></tr>
+      <tr><td><code>Float</code></td><td>DOUBLE PRECISION</td><td>Decimals (NRR, percentages)</td></tr>
+      <tr><td><code>Boolean</code></td><td>BOOLEAN</td><td>Flags (isActive, isMegaContest)</td></tr>
+      <tr><td><code>DateTime</code></td><td>TIMESTAMP</td><td>All dates — always store UTC</td></tr>
+      <tr><td><code>Type?</code></td><td>nullable</td><td>Optional fields (result before match is played)</td></tr>
+      <tr><td><code>Type[]</code></td><td>relation array</td><td>One-to-many relations (matches in a tournament)</td></tr>
+    </tbody>
+  </table>
+
+  <!-- ===== SECTION 4 ===== -->
+  <h2 class="section" id="model1">4. Tournament Model — Step by Step</h2>
+
+  <p>Let's build this model one concept at a time, not all at once.</p>
+
+  <h3 class="sub">Start with just the fields</h3>
+  <pre><code><span class="kw">model</span> <span class="type">Tournament</span> {
+  <span class="field">id</span>        <span class="type">String</span>    <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+  <span class="field">name</span>      <span class="type">String</span>    <span class="comment">// "IPL 2026", "Cricket World Cup 2026"</span>
+  <span class="field">sport</span>     <span class="type">Sport</span>     <span class="comment">// enum: CRICKET or FOOTBALL</span>
+  <span class="field">startDate</span> <span class="type">DateTime</span>
+  <span class="field">endDate</span>   <span class="type">DateTime</span>
+  <span class="field">logoUrl</span>   <span class="type">String?</span>   <span class="comment">// optional — might not have logo yet</span>
+  <span class="field">status</span>    <span class="type">TournamentStatus</span> <span class="attr">@default</span>(<span class="field">UPCOMING</span>)
+  <span class="field">createdAt</span> <span class="type">DateTime</span>  <span class="attr">@default</span>(<span class="field">now</span>())
+  <span class="field">updatedAt</span> <span class="type">DateTime</span>  <span class="attr">@updatedAt</span>
+
+  <span class="comment">// Relations (we'll explain these below)</span>
+  <span class="field">matches</span>   <span class="rel">Match[]</span>
+}</code></pre>
+
+  <div class="callout tip">
+    <div class="callout-title">💡 Why cuid() not autoincrement()?</div>
+    <p><code>cuid()</code> generates unique string IDs like <code>clx7abc123</code>. They're safe to expose in URLs, harder to guess than sequential integers (1, 2, 3...), and work across distributed systems. Use <code>cuid()</code> for all your IDs.</p>
+  </div>
+
+  <div class="callout info">
+    <div class="callout-title">ℹ️ @updatedAt</div>
+    <p>This is magic — Prisma automatically updates this field every time you update the record. You never set it manually. Always add it to every model.</p>
+  </div>
+
+  <!-- ===== SECTION 5 ===== -->
+  <h2 class="section" id="model2">5. Match Model — Adding Relations</h2>
+
+  <p>Match is where relations get interesting. It belongs to a Tournament and has a Contest.</p>
+
+  <pre><code><span class="kw">model</span> <span class="type">Match</span> {
+  <span class="field">id</span>           <span class="type">String</span>       <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+  <span class="field">homeTeam</span>     <span class="type">String</span>       <span class="comment">// "Chennai Super Kings"</span>
+  <span class="field">awayTeam</span>     <span class="type">String</span>       <span class="comment">// "Mumbai Indians"</span>
+  <span class="field">matchDate</span>    <span class="type">DateTime</span>
+  <span class="field">venue</span>        <span class="type">String?</span>
+  <span class="field">round</span>        <span class="type">String?</span>      <span class="comment">// "Group Stage", "Semi Final" etc</span>
+  <span class="field">status</span>       <span class="type">MatchStatus</span>  <span class="attr">@default</span>(<span class="field">UPCOMING</span>)
+
+  <span class="comment">// Result fields — null until match is completed</span>
+  <span class="field">homeScore</span>    <span class="type">String?</span>      <span class="comment">// "185/4" for cricket, "2" for football</span>
+  <span class="field">awayScore</span>    <span class="type">String?</span>
+  <span class="field">result</span>       <span class="type">String?</span>      <span class="comment">// "CSK won by 23 runs"</span>
+
+  <span class="comment">// ── Relation to Tournament ──────────────────────</span>
+  <span class="comment">// Step 1: Foreign key column (stored in DB)</span>
+  <span class="field">tournamentId</span> <span class="type">String</span>
+  <span class="comment">// Step 2: Relation field (not in DB, just for Prisma queries)</span>
+  <span class="field">tournament</span>   <span class="rel">Tournament</span>   <span class="attr">@relation</span>(<span class="field">fields</span>: [<span class="field">tournamentId</span>], <span class="field">references</span>: [<span class="field">id</span>])
+
+  <span class="comment">// ── Relation to Contest ─────────────────────────</span>
+  <span class="comment">// One match has one contest (optional — may not have one yet)</span>
+  <span class="field">contest</span>      <span class="rel">Contest?</span>
+
+  <span class="field">createdAt</span>    <span class="type">DateTime</span>     <span class="attr">@default</span>(<span class="field">now</span>())
+  <span class="field">updatedAt</span>    <span class="type">DateTime</span>     <span class="attr">@updatedAt</span>
+}</code></pre>
+
+  <h3 class="sub">Understanding the @relation Syntax</h3>
+  <p>This is the part that confuses most beginners. Let's break it apart:</p>
+
+  <pre><code><span class="comment">// In Match model:</span>
+<span class="field">tournamentId</span> <span class="type">String</span>                          <span class="comment">← Real DB column (foreign key)</span>
+<span class="field">tournament</span>   <span class="rel">Tournament</span>  <span class="attr">@relation</span>(            <span class="comment">← Virtual (only for Prisma)</span>
+               <span class="field">fields</span>: [<span class="field">tournamentId</span>],       <span class="comment">← "use THIS column..."</span>
+               <span class="field">references</span>: [<span class="field">id</span>]            <span class="comment">← "...to find THIS field in Tournament"</span>
+             )
+
+<span class="comment">// In Tournament model (the other side):</span>
+<span class="field">matches</span>  <span class="rel">Match[]</span>   <span class="comment">← "I have many matches" — no @relation needed on this side</span></code></pre>
+
+  <div class="callout warn">
+    <div class="callout-title">⚠️ The Golden Rule of Relations</div>
+    <p>The <strong>child</strong> model (Match) stores the foreign key (<code>tournamentId</code>) and has the <code>@relation</code> attribute. The <strong>parent</strong> model (Tournament) just declares the array (<code>matches Match[]</code>). Never the other way around.</p>
+  </div>
+
+  <!-- ===== SECTION 6 ===== -->
+  <h2 class="section" id="model3">6. User Model — Auth-Aware Design</h2>
+
+  <p>Since you're using SSO (Clerk or NextAuth), your User model needs to link to the external auth provider.</p>
+
+  <pre><code><span class="kw">model</span> <span class="type">User</span> {
+  <span class="field">id</span>          <span class="type">String</span>    <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+
+  <span class="comment">// If using Clerk: store Clerk's userId here</span>
+  <span class="comment">// If using NextAuth: this is auto-handled</span>
+  <span class="field">clerkId</span>     <span class="type">String?</span>   <span class="attr">@unique</span>   <span class="comment">// Clerk's user ID</span>
+
+  <span class="field">email</span>       <span class="type">String</span>    <span class="attr">@unique</span>
+  <span class="field">name</span>        <span class="type">String?</span>
+  <span class="field">avatarUrl</span>   <span class="type">String?</span>
+
+  <span class="comment">// Stats (updated after each contest is scored)</span>
+  <span class="field">totalPoints</span>      <span class="type">Int</span>  <span class="attr">@default</span>(<span class="field">0</span>)
+  <span class="field">currentStreak</span>    <span class="type">Int</span>  <span class="attr">@default</span>(<span class="field">0</span>)
+  <span class="field">totalPredictions</span> <span class="type">Int</span>  <span class="attr">@default</span>(<span class="field">0</span>)
+  <span class="field">correctPredictions</span> <span class="type">Int</span> <span class="attr">@default</span>(<span class="field">0</span>)
+
+  <span class="comment">// Relations</span>
+  <span class="field">predictions</span> <span class="rel">Prediction[]</span>
+
+  <span class="field">createdAt</span>   <span class="type">DateTime</span>  <span class="attr">@default</span>(<span class="field">now</span>())
+  <span class="field">updatedAt</span>   <span class="type">DateTime</span>  <span class="attr">@updatedAt</span>
+
+  <span class="decorator">@@index</span>([<span class="field">totalPoints</span>])  <span class="comment">// Index for fast leaderboard queries</span>
+}</code></pre>
+
+  <div class="callout info">
+    <div class="callout-title">ℹ️ Storing Stats on User vs Calculating on the Fly</div>
+    <p>For a 3-day sprint, store <code>totalPoints</code> directly on User. Update it when you score a contest. Don't try to calculate it from all predictions on every leaderboard load — that's slow and complex. Denormalize for speed.</p>
+  </div>
+
+  <!-- ===== SECTION 7 ===== -->
+  <h2 class="section" id="relations">7. All Relation Types Explained</h2>
+
+  <table>
+    <thead><tr><th>Type</th><th>Example</th><th>Where FK lives</th><th>Prisma syntax</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><strong>One-to-Many</strong></td>
+        <td>Tournament → Matches</td>
+        <td>Child (Match) has <code>tournamentId</code></td>
+        <td>Parent has <code>Match[]</code>, child has <code>@relation</code></td>
+      </tr>
+      <tr>
+        <td><strong>One-to-One</strong></td>
+        <td>Match → Contest</td>
+        <td>Child (Contest) has <code>matchId</code></td>
+        <td>Parent has <code>Contest?</code>, child has <code>@relation @unique</code></td>
+      </tr>
+      <tr>
+        <td><strong>Many-to-Many</strong></td>
+        <td>User ↔ Contest (entries)</td>
+        <td>Junction table (Prisma auto-creates)</td>
+        <td>Both sides have array <code>Contest[]</code> and <code>User[]</code></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h3 class="sub">One-to-One: Match → Contest</h3>
+  <pre><code><span class="comment">// In Contest model:</span>
+<span class="kw">model</span> <span class="type">Contest</span> {
+  <span class="field">id</span>       <span class="type">String</span>   <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+  <span class="field">matchId</span>  <span class="type">String</span>   <span class="attr">@unique</span>   <span class="comment">← @unique makes it one-to-one!</span>
+  <span class="field">match</span>    <span class="rel">Match</span>    <span class="attr">@relation</span>(<span class="field">fields</span>: [<span class="field">matchId</span>], <span class="field">references</span>: [<span class="field">id</span>])
+  <span class="comment">// ...other fields</span>
+}
+
+<span class="comment">// In Match model:</span>
+<span class="kw">model</span> <span class="type">Match</span> {
+  <span class="comment">// ...</span>
+  <span class="field">contest</span>  <span class="rel">Contest?</span>  <span class="comment">← ? because match might not have contest yet</span>
+}</code></pre>
+
+  <!-- ===== SECTION 8 ===== -->
+  <h2 class="section" id="full">8. Full Schema — All Models</h2>
+
+  <div class="callout tip">
+    <div class="callout-title">✅ Copy this into your prisma/schema.prisma</div>
+    <p>This is the complete schema for your MVP. Every field has been chosen deliberately. Read the comments — they explain the decisions.</p>
+  </div>
+
+  <pre><code><span class="kw">datasource</span> <span class="field">db</span> {
+  <span class="field">provider</span> = <span class="str">"postgresql"</span>
+  <span class="field">url</span>      = <span class="field">env</span>(<span class="str">"DATABASE_URL"</span>)
+}
+
+<span class="kw">generator</span> <span class="field">client</span> {
+  <span class="field">provider</span> = <span class="str">"prisma-client-js"</span>
+}
+
+<span class="comment">// ─────────────────────────────────────────
+//  ENUMS
+// ─────────────────────────────────────────</span>
+
+<span class="kw">enum</span> <span class="type">Sport</span> {
+  <span class="field">CRICKET</span>
+  <span class="field">FOOTBALL</span>
+}
+
+<span class="kw">enum</span> <span class="type">TournamentStatus</span> {
+  <span class="field">UPCOMING</span>
+  <span class="field">ACTIVE</span>
+  <span class="field">COMPLETED</span>
+}
+
+<span class="kw">enum</span> <span class="type">MatchStatus</span> {
+  <span class="field">UPCOMING</span>
+  <span class="field">LIVE</span>
+  <span class="field">COMPLETED</span>
+  <span class="field">ABANDONED</span>
+}
+
+<span class="kw">enum</span> <span class="type">ContestStatus</span> {
+  <span class="field">OPEN</span>        <span class="comment">// accepting predictions</span>
+  <span class="field">LOCKED</span>      <span class="comment">// expired, no more submissions</span>
+  <span class="field">SCORED</span>      <span class="comment">// results entered, points awarded</span>
+}
+
+<span class="kw">enum</span> <span class="type">ContestType</span> {
+  <span class="field">DAILY</span>       <span class="comment">// per-match contest</span>
+  <span class="field">MEGA</span>        <span class="comment">// tournament-level contest</span>
+}
+
+<span class="kw">enum</span> <span class="type">QuestionType</span> {
+  <span class="field">MATCH_WINNER</span>
+  <span class="field">PLAYER_OF_MATCH</span>
+  <span class="field">FIRST_WICKET</span>
+  <span class="field">FIRST_GOAL_SCORER</span>
+  <span class="field">TOP_BATSMAN</span>
+  <span class="field">TOP_BOWLER</span>
+  <span class="field">EXACT_SCORE</span>
+  <span class="field">CUSTOM</span>       <span class="comment">// admin-defined free-form question</span>
+}
+
+<span class="comment">// ─────────────────────────────────────────
+//  TOURNAMENT
+// ─────────────────────────────────────────</span>
+
+<span class="kw">model</span> <span class="type">Tournament</span> {
+  <span class="field">id</span>          <span class="type">String</span>           <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+  <span class="field">name</span>        <span class="type">String</span>           <span class="comment">// "IPL 2026"</span>
+  <span class="field">sport</span>       <span class="type">Sport</span>
+  <span class="field">startDate</span>   <span class="type">DateTime</span>
+  <span class="field">endDate</span>     <span class="type">DateTime</span>
+  <span class="field">logoUrl</span>     <span class="type">String?</span>
+  <span class="field">status</span>      <span class="type">TournamentStatus</span> <span class="attr">@default</span>(<span class="field">UPCOMING</span>)
+  <span class="field">hasGroups</span>   <span class="type">Boolean</span>          <span class="attr">@default</span>(<span class="field">false</span>) <span class="comment">// false for IPL, true for WC</span>
+
+  <span class="field">matches</span>     <span class="rel">Match[]</span>
+  <span class="field">contests</span>    <span class="rel">Contest[]</span>        <span class="comment">// includes mega contests</span>
+
+  <span class="field">createdAt</span>   <span class="type">DateTime</span>         <span class="attr">@default</span>(<span class="field">now</span>())
+  <span class="field">updatedAt</span>   <span class="type">DateTime</span>         <span class="attr">@updatedAt</span>
+}
+
+<span class="comment">// ─────────────────────────────────────────
+//  MATCH
+// ─────────────────────────────────────────</span>
+
+<span class="kw">model</span> <span class="type">Match</span> {
+  <span class="field">id</span>            <span class="type">String</span>      <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+  <span class="field">homeTeam</span>      <span class="type">String</span>
+  <span class="field">awayTeam</span>      <span class="type">String</span>
+  <span class="field">matchDate</span>     <span class="type">DateTime</span>    <span class="comment">// always UTC</span>
+  <span class="field">venue</span>         <span class="type">String?</span>
+  <span class="field">round</span>         <span class="type">String?</span>     <span class="comment">// "Group Stage", "Semi Final", "Final"</span>
+  <span class="field">groupName</span>     <span class="type">String?</span>     <span class="comment">// "Group A" — null for IPL</span>
+  <span class="field">status</span>        <span class="type">MatchStatus</span> <span class="attr">@default</span>(<span class="field">UPCOMING</span>)
+
+  <span class="comment">// Result — null until match is completed</span>
+  <span class="field">homeScore</span>     <span class="type">String?</span>     <span class="comment">// "185/4 (20 overs)" or "2"</span>
+  <span class="field">awayScore</span>     <span class="type">String?</span>
+  <span class="field">resultSummary</span> <span class="type">String?</span>     <span class="comment">// "CSK won by 23 runs"</span>
+  <span class="field">winnerId</span>      <span class="type">String?</span>     <span class="comment">// team name of winner (for scoring)</span>
+
+  <span class="comment">// Relations</span>
+  <span class="field">tournamentId</span>  <span class="type">String</span>
+  <span class="field">tournament</span>    <span class="rel">Tournament</span>  <span class="attr">@relation</span>(<span class="field">fields</span>: [<span class="field">tournamentId</span>], <span class="field">references</span>: [<span class="field">id</span>])
+  <span class="field">contest</span>       <span class="rel">Contest?</span>
+
+  <span class="field">createdAt</span>     <span class="type">DateTime</span>    <span class="attr">@default</span>(<span class="field">now</span>())
+  <span class="field">updatedAt</span>     <span class="type">DateTime</span>    <span class="attr">@updatedAt</span>
+
+  <span class="decorator">@@index</span>([<span class="field">tournamentId</span>, <span class="field">matchDate</span>])
+}
+
+<span class="comment">// ─────────────────────────────────────────
+//  CONTEST
+// ─────────────────────────────────────────</span>
+
+<span class="kw">model</span> <span class="type">Contest</span> {
+  <span class="field">id</span>           <span class="type">String</span>       <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+  <span class="field">title</span>        <span class="type">String</span>       <span class="comment">// "CSK vs MI — Match Predictions"</span>
+  <span class="field">type</span>         <span class="type">ContestType</span>  <span class="attr">@default</span>(<span class="field">DAILY</span>)
+  <span class="field">status</span>       <span class="type">ContestStatus</span> <span class="attr">@default</span>(<span class="field">OPEN</span>)
+  <span class="field">expiresAt</span>    <span class="type">DateTime</span>     <span class="comment">// after this → status = LOCKED</span>
+
+  <span class="comment">// DAILY contest links to a match</span>
+  <span class="comment">// MEGA contest links only to tournament</span>
+  <span class="field">matchId</span>      <span class="type">String?</span>      <span class="attr">@unique</span>  <span class="comment">// @unique = one contest per match</span>
+  <span class="field">match</span>        <span class="rel">Match?</span>       <span class="attr">@relation</span>(<span class="field">fields</span>: [<span class="field">matchId</span>], <span class="field">references</span>: [<span class="field">id</span>])
+
+  <span class="field">tournamentId</span> <span class="type">String</span>
+  <span class="field">tournament</span>   <span class="rel">Tournament</span>   <span class="attr">@relation</span>(<span class="field">fields</span>: [<span class="field">tournamentId</span>], <span class="field">references</span>: [<span class="field">id</span>])
+
+  <span class="field">questions</span>    <span class="rel">Question[]</span>
+
+  <span class="field">createdAt</span>    <span class="type">DateTime</span>     <span class="attr">@default</span>(<span class="field">now</span>())
+  <span class="field">updatedAt</span>    <span class="type">DateTime</span>     <span class="attr">@updatedAt</span>
+}
+
+<span class="comment">// ─────────────────────────────────────────
+//  QUESTION
+// ─────────────────────────────────────────</span>
+
+<span class="kw">model</span> <span class="type">Question</span> {
+  <span class="field">id</span>            <span class="type">String</span>       <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+  <span class="field">text</span>          <span class="type">String</span>       <span class="comment">// "Who will win the match?"</span>
+  <span class="field">type</span>          <span class="type">QuestionType</span> <span class="attr">@default</span>(<span class="field">CUSTOM</span>)
+  <span class="field">options</span>       <span class="type">String[]</span>     <span class="comment">// ["CSK", "MI", "Draw"] — Postgres array</span>
+  <span class="field">correctAnswer</span> <span class="type">String?</span>      <span class="comment">// set after match. null until then</span>
+  <span class="field">points</span>        <span class="type">Int</span>          <span class="attr">@default</span>(<span class="field">10</span>)   <span class="comment">// base points for correct answer</span>
+  <span class="field">bonusPoints</span>   <span class="type">Int</span>          <span class="attr">@default</span>(<span class="field">0</span>)    <span class="comment">// extra for exact/rare predictions</span>
+  <span class="field">order</span>         <span class="type">Int</span>          <span class="attr">@default</span>(<span class="field">0</span>)    <span class="comment">// display order within contest</span>
+
+  <span class="field">contestId</span>     <span class="type">String</span>
+  <span class="field">contest</span>       <span class="rel">Contest</span>      <span class="attr">@relation</span>(<span class="field">fields</span>: [<span class="field">contestId</span>], <span class="field">references</span>: [<span class="field">id</span>])
+
+  <span class="field">predictions</span>   <span class="rel">Prediction[]</span>
+
+  <span class="field">createdAt</span>     <span class="type">DateTime</span>     <span class="attr">@default</span>(<span class="field">now</span>())
+}
+
+<span class="comment">// ─────────────────────────────────────────
+//  PREDICTION  (the heart of the app)
+// ─────────────────────────────────────────</span>
+
+<span class="kw">model</span> <span class="type">Prediction</span> {
+  <span class="field">id</span>          <span class="type">String</span>    <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+  <span class="field">answer</span>      <span class="type">String</span>    <span class="comment">// User's chosen option</span>
+  <span class="field">isCorrect</span>   <span class="type">Boolean?</span>  <span class="comment">// null until contest is scored</span>
+  <span class="field">pointsEarned</span> <span class="type">Int</span>     <span class="attr">@default</span>(<span class="field">0</span>) <span class="comment">// set when scored</span>
+
+  <span class="field">userId</span>      <span class="type">String</span>
+  <span class="field">user</span>        <span class="rel">User</span>      <span class="attr">@relation</span>(<span class="field">fields</span>: [<span class="field">userId</span>], <span class="field">references</span>: [<span class="field">id</span>])
+
+  <span class="field">questionId</span>  <span class="type">String</span>
+  <span class="field">question</span>    <span class="rel">Question</span>  <span class="attr">@relation</span>(<span class="field">fields</span>: [<span class="field">questionId</span>], <span class="field">references</span>: [<span class="field">id</span>])
+
+  <span class="field">createdAt</span>   <span class="type">DateTime</span>  <span class="attr">@default</span>(<span class="field">now</span>())
+  <span class="field">updatedAt</span>   <span class="type">DateTime</span>  <span class="attr">@updatedAt</span>
+
+  <span class="comment">// ← THIS IS CRITICAL</span>
+  <span class="comment">// Ensures one prediction per user per question</span>
+  <span class="comment">// Enables upsert (update if exists, create if not)</span>
+  <span class="decorator">@@unique</span>([<span class="field">userId</span>, <span class="field">questionId</span>])
+  <span class="decorator">@@index</span>([<span class="field">userId</span>])
+  <span class="decorator">@@index</span>([<span class="field">questionId</span>])
+}
+
+<span class="comment">// ─────────────────────────────────────────
+//  USER
+// ─────────────────────────────────────────</span>
+
+<span class="kw">model</span> <span class="type">User</span> {
+  <span class="field">id</span>                 <span class="type">String</span>       <span class="attr">@id</span> <span class="attr">@default</span>(<span class="field">cuid</span>())
+  <span class="field">clerkId</span>            <span class="type">String?</span>      <span class="attr">@unique</span>  <span class="comment">// from Clerk SSO</span>
+  <span class="field">email</span>              <span class="type">String</span>       <span class="attr">@unique</span>
+  <span class="field">name</span>               <span class="type">String?</span>
+  <span class="field">avatarUrl</span>          <span class="type">String?</span>
+  <span class="field">totalPoints</span>        <span class="type">Int</span>          <span class="attr">@default</span>(<span class="field">0</span>)
+  <span class="field">currentStreak</span>      <span class="type">Int</span>          <span class="attr">@default</span>(<span class="field">0</span>)
+  <span class="field">totalPredictions</span>   <span class="type">Int</span>          <span class="attr">@default</span>(<span class="field">0</span>)
+  <span class="field">correctPredictions</span> <span class="type">Int</span>          <span class="attr">@default</span>(<span class="field">0</span>)
+
+  <span class="field">predictions</span>        <span class="rel">Prediction[]</span>
+
+  <span class="field">createdAt</span>          <span class="type">DateTime</span>     <span class="attr">@default</span>(<span class="field">now</span>())
+  <span class="field">updatedAt</span>          <span class="type">DateTime</span>     <span class="attr">@updatedAt</span>
+
+  <span class="decorator">@@index</span>([<span class="field">totalPoints</span>])  <span class="comment">// fast leaderboard sorting</span>
+}</code></pre>
+
+  <!-- ===== SECTION 9 ===== -->
+  <h2 class="section" id="enums">9. Enums — Why They Matter</h2>
+
+  <p>Enums prevent bad data from ever entering your database. Without them, someone can set <code>status = "compleeted"</code> (typo) and your app silently breaks.</p>
+
+  <div class="two-col">
+    <div class="card">
+      <h4>❌ Without Enum</h4>
+      <pre style="margin:0; padding:10px; font-size:12px;"><code><span class="field">status</span> <span class="type">String</span>
+<span class="comment">// Could be:
+// "active", "Active", "ACTIVE"
+// "compleeted" (typo)
+// "done", "finished"
+// anything!</span></code></pre>
+    </div>
+    <div class="card">
+      <h4>✅ With Enum</h4>
+      <pre style="margin:0; padding:10px; font-size:12px;"><code><span class="kw">enum</span> <span class="type">Status</span> {
+  <span class="field">OPEN</span>
+  <span class="field">LOCKED</span>
+  <span class="field">SCORED</span>
+}
+<span class="comment">// DB rejects anything else.
+// TypeScript autocompletes it.
+// No bugs possible.</span></code></pre>
+    </div>
+  </div>
+
+  <!-- ===== SECTION 10 ===== -->
+  <h2 class="section" id="migrations">10. Running Migrations</h2>
+
+  <p>Migrations are how your schema becomes actual database tables. Prisma tracks every migration in a <code>prisma/migrations/</code> folder.</p>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">1</span> First migration (development)</div>
+    <pre><code>npx prisma migrate dev --name init</code></pre>
+    <p style="color:#94a3b8; font-size:13px; margin-top:8px;">This creates the migration file AND runs it immediately. Use during development.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">2</span> After changing schema, create a new migration</div>
+    <pre><code><span class="comment"># Example: you added a new field to Contest</span>
+npx prisma migrate dev --name add_contest_banner_url</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">3</span> Generate Prisma Client (after schema changes)</div>
+    <pre><code>npx prisma generate</code></pre>
+    <p style="color:#94a3b8; font-size:13px; margin-top:8px;">This regenerates TypeScript types. Cursor will autocomplete your models perfectly after this.</p>
+  </div>
+
+  <div class="step">
+    <div class="step-title"><span class="step-num">4</span> View your database in a browser</div>
+    <pre><code>npx prisma studio</code></pre>
+    <p style="color:#94a3b8; font-size:13px; margin-top:8px;">Opens a visual database explorer at localhost:5555. Extremely useful during development to verify your data.</p>
+  </div>
+
+  <div class="callout danger">
+    <div class="callout-title">🚫 Never Edit Migration Files Manually</div>
+    <p>Prisma tracks migration history. If you edit a migration file that's already been run, Prisma gets confused and breaks. Instead, always create a new migration for each schema change.</p>
+  </div>
+
+  <!-- ===== SECTION 11 ===== -->
+  <h2 class="section" id="queries">11. The Queries You'll Actually Use</h2>
+
+  <p>Create a <code>src/lib/prisma.ts</code> singleton first — never create a new PrismaClient in every file:</p>
+
+  <pre><code><span class="comment">// src/lib/prisma.ts</span>
+<span class="kw">import</span> { PrismaClient } <span class="kw">from</span> <span class="str">'@prisma/client'</span>
+
+<span class="kw">const</span> <span class="field">globalForPrisma</span> = <span class="field">global</span> <span class="kw">as</span> { <span class="field">prisma</span>?: PrismaClient }
+
+<span class="kw">export const</span> <span class="field">prisma</span> =
+  <span class="field">globalForPrisma</span>.<span class="field">prisma</span> ?? <span class="kw">new</span> <span class="type">PrismaClient</span>({ <span class="field">log</span>: [<span class="str">'query'</span>] })
+
+<span class="kw">if</span> (<span class="field">process</span>.<span class="field">env</span>.<span class="field">NODE_ENV</span> !== <span class="str">'production'</span>)
+  <span class="field">globalForPrisma</span>.<span class="field">prisma</span> = <span class="field">prisma</span></code></pre>
+
+  <h3 class="sub">Query 1: Get matches for a tournament (Schedules page)</h3>
+  <pre><code><span class="kw">const</span> <span class="field">matches</span> = <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">match</span>.<span class="field">findMany</span>({
+  <span class="field">where</span>: {
+    <span class="field">tournamentId</span>: <span class="str">'tournament-id-here'</span>,
+    <span class="field">status</span>: { <span class="field">in</span>: [<span class="str">'UPCOMING'</span>, <span class="str">'LIVE'</span>] }
+  },
+  <span class="field">include</span>: {
+    <span class="field">contest</span>: {                    <span class="comment">// also fetch the contest</span>
+      <span class="field">select</span>: { <span class="field">id</span>: <span class="field">true</span>, <span class="field">status</span>: <span class="field">true</span>, <span class="field">expiresAt</span>: <span class="field">true</span> }
+    }
+  },
+  <span class="field">orderBy</span>: { <span class="field">matchDate</span>: <span class="str">'asc'</span> }
+})</code></pre>
+
+  <h3 class="sub">Query 2: Get contest with questions (Contest page)</h3>
+  <pre><code><span class="kw">const</span> <span class="field">contest</span> = <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">contest</span>.<span class="field">findUnique</span>({
+  <span class="field">where</span>: { <span class="field">id</span>: <span class="field">contestId</span> },
+  <span class="field">include</span>: {
+    <span class="field">questions</span>: {
+      <span class="field">orderBy</span>: { <span class="field">order</span>: <span class="str">'asc'</span> }
+    },
+    <span class="field">match</span>: {
+      <span class="field">select</span>: { <span class="field">homeTeam</span>: <span class="field">true</span>, <span class="field">awayTeam</span>: <span class="field">true</span>, <span class="field">matchDate</span>: <span class="field">true</span> }
+    }
+  }
+})</code></pre>
+
+  <h3 class="sub">Query 3: Submit / Update a prediction (upsert)</h3>
+  <pre><code><span class="comment">// This is your most important query.
+// Creates the prediction if first time.
+// Updates it if user changes their answer.
+// ONLY works because of @@unique([userId, questionId])</span>
+
+<span class="kw">const</span> <span class="field">prediction</span> = <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">prediction</span>.<span class="field">upsert</span>({
+  <span class="field">where</span>: {
+    <span class="field">userId_questionId</span>: { <span class="field">userId</span>, <span class="field">questionId</span> }   <span class="comment">// compound unique</span>
+  },
+  <span class="field">update</span>: { <span class="field">answer</span>: <span class="field">newAnswer</span> },
+  <span class="field">create</span>: { <span class="field">userId</span>, <span class="field">questionId</span>, <span class="field">answer</span>: <span class="field">newAnswer</span> }
+})</code></pre>
+
+  <h3 class="sub">Query 4: Leaderboard (sorted by points)</h3>
+  <pre><code><span class="kw">const</span> <span class="field">leaderboard</span> = <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">user</span>.<span class="field">findMany</span>({
+  <span class="field">select</span>: {
+    <span class="field">id</span>: <span class="field">true</span>, <span class="field">name</span>: <span class="field">true</span>, <span class="field">avatarUrl</span>: <span class="field">true</span>,
+    <span class="field">totalPoints</span>: <span class="field">true</span>, <span class="field">currentStreak</span>: <span class="field">true</span>,
+    <span class="field">correctPredictions</span>: <span class="field">true</span>, <span class="field">totalPredictions</span>: <span class="field">true</span>
+  },
+  <span class="field">orderBy</span>: { <span class="field">totalPoints</span>: <span class="str">'desc'</span> },
+  <span class="field">take</span>: <span class="field">50</span>   <span class="comment">// top 50 only</span>
+})</code></pre>
+
+  <h3 class="sub">Query 5: Score a contest (after match result entered)</h3>
+  <pre><code><span class="comment">// Run this after admin sets correctAnswer on all questions</span>
+<span class="kw">async function</span> <span class="field">scoreContest</span>(<span class="field">contestId</span>: <span class="type">string</span>) {
+  <span class="kw">const</span> <span class="field">questions</span> = <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">question</span>.<span class="field">findMany</span>({
+    <span class="field">where</span>: { <span class="field">contestId</span> },
+    <span class="field">include</span>: { <span class="field">predictions</span>: <span class="field">true</span> }
+  })
+
+  <span class="kw">for</span> (<span class="kw">const</span> <span class="field">question</span> <span class="kw">of</span> <span class="field">questions</span>) {
+    <span class="kw">for</span> (<span class="kw">const</span> <span class="field">prediction</span> <span class="kw">of</span> <span class="field">question</span>.<span class="field">predictions</span>) {
+      <span class="kw">const</span> <span class="field">isCorrect</span> = <span class="field">prediction</span>.<span class="field">answer</span> === <span class="field">question</span>.<span class="field">correctAnswer</span>
+      <span class="kw">const</span> <span class="field">pointsEarned</span> = <span class="field">isCorrect</span> ? <span class="field">question</span>.<span class="field">points</span> : <span class="field">0</span>
+
+      <span class="comment">// Update prediction</span>
+      <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">prediction</span>.<span class="field">update</span>({
+        <span class="field">where</span>: { <span class="field">id</span>: <span class="field">prediction</span>.<span class="field">id</span> },
+        <span class="field">data</span>: { <span class="field">isCorrect</span>, <span class="field">pointsEarned</span> }
+      })
+
+      <span class="comment">// Update user total (increment, not recalculate)</span>
+      <span class="kw">if</span> (<span class="field">isCorrect</span>) {
+        <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">user</span>.<span class="field">update</span>({
+          <span class="field">where</span>: { <span class="field">id</span>: <span class="field">prediction</span>.<span class="field">userId</span> },
+          <span class="field">data</span>: {
+            <span class="field">totalPoints</span>: { <span class="field">increment</span>: <span class="field">pointsEarned</span> },
+            <span class="field">correctPredictions</span>: { <span class="field">increment</span>: <span class="field">1</span> }
+          }
+        })
+      }
+    }
+  }
+
+  <span class="comment">// Mark contest as scored</span>
+  <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">contest</span>.<span class="field">update</span>({
+    <span class="field">where</span>: { <span class="field">id</span>: <span class="field">contestId</span> },
+    <span class="field">data</span>: { <span class="field">status</span>: <span class="str">'SCORED'</span> }
+  })
+}</code></pre>
+
+  <!-- ===== SECTION 12 ===== -->
+  <h2 class="section" id="seed">12. Seed Script</h2>
+
+  <p>A seed script populates your DB with test data so you can build UI without waiting for real data. Create this at <code>prisma/seed.ts</code>:</p>
+
+  <pre><code><span class="comment">// prisma/seed.ts</span>
+<span class="kw">import</span> { PrismaClient } <span class="kw">from</span> <span class="str">'@prisma/client'</span>
+
+<span class="kw">const</span> <span class="field">prisma</span> = <span class="kw">new</span> <span class="type">PrismaClient</span>()
+
+<span class="kw">async function</span> <span class="field">main</span>() {
+  <span class="comment">// 1. Create tournament</span>
+  <span class="kw">const</span> <span class="field">tournament</span> = <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">tournament</span>.<span class="field">create</span>({
+    <span class="field">data</span>: {
+      <span class="field">name</span>: <span class="str">'IPL 2026'</span>,
+      <span class="field">sport</span>: <span class="str">'CRICKET'</span>,
+      <span class="field">startDate</span>: <span class="kw">new</span> <span class="type">Date</span>(<span class="str">'2026-03-22'</span>),
+      <span class="field">endDate</span>: <span class="kw">new</span> <span class="type">Date</span>(<span class="str">'2026-05-26'</span>),
+      <span class="field">status</span>: <span class="str">'ACTIVE'</span>,
+      <span class="field">hasGroups</span>: <span class="field">false</span>
+    }
+  })
+
+  <span class="comment">// 2. Create a match with a contest and questions (nested create)</span>
+  <span class="kw">const</span> <span class="field">match</span> = <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">match</span>.<span class="field">create</span>({
+    <span class="field">data</span>: {
+      <span class="field">homeTeam</span>: <span class="str">'Chennai Super Kings'</span>,
+      <span class="field">awayTeam</span>: <span class="str">'Mumbai Indians'</span>,
+      <span class="field">matchDate</span>: <span class="kw">new</span> <span class="type">Date</span>(<span class="str">'2026-03-25T14:00:00Z'</span>),
+      <span class="field">venue</span>: <span class="str">'Wankhede Stadium'</span>,
+      <span class="field">tournamentId</span>: <span class="field">tournament</span>.<span class="field">id</span>,
+
+      <span class="comment">// Nested: create contest + questions in one query!</span>
+      <span class="field">contest</span>: {
+        <span class="field">create</span>: {
+          <span class="field">title</span>: <span class="str">'CSK vs MI — Match Predictions'</span>,
+          <span class="field">type</span>: <span class="str">'DAILY'</span>,
+          <span class="field">expiresAt</span>: <span class="kw">new</span> <span class="type">Date</span>(<span class="str">'2026-03-25T13:30:00Z'</span>),
+          <span class="field">tournamentId</span>: <span class="field">tournament</span>.<span class="field">id</span>,
+          <span class="field">questions</span>: {
+            <span class="field">create</span>: [
+              {
+                <span class="field">text</span>: <span class="str">'Who will win the match?'</span>,
+                <span class="field">type</span>: <span class="str">'MATCH_WINNER'</span>,
+                <span class="field">options</span>: [<span class="str">'Chennai Super Kings'</span>, <span class="str">'Mumbai Indians'</span>],
+                <span class="field">points</span>: <span class="field">10</span>,
+                <span class="field">order</span>: <span class="field">1</span>
+              },
+              {
+                <span class="field">text</span>: <span class="str">'Who will be Player of the Match?'</span>,
+                <span class="field">type</span>: <span class="str">'PLAYER_OF_MATCH'</span>,
+                <span class="field">options</span>: [<span class="str">'MS Dhoni'</span>, <span class="str">'Rohit Sharma'</span>, <span class="str">'Ruturaj Gaikwad'</span>, <span class="str">'Hardik Pandya'</span>],
+                <span class="field">points</span>: <span class="field">20</span>,
+                <span class="field">order</span>: <span class="field">2</span>
+              },
+              {
+                <span class="field">text</span>: <span class="str">'Who will take the first wicket?'</span>,
+                <span class="field">type</span>: <span class="str">'FIRST_WICKET'</span>,
+                <span class="field">options</span>: [<span class="str">'Jasprit Bumrah'</span>, <span class="str">'Deepak Chahar'</span>, <span class="str">'Mustafizur Rahman'</span>],
+                <span class="field">points</span>: <span class="field">30</span>,
+                <span class="field">order</span>: <span class="field">3</span>
+              }
+            ]
+          }
+        }
+      }
+    }
+  })
+
+  <span class="comment">// 3. Create test users</span>
+  <span class="kw">const</span> <span class="field">user1</span> = <span class="kw">await</span> <span class="field">prisma</span>.<span class="field">user</span>.<span class="field">create</span>({
+    <span class="field">data</span>: { <span class="field">email</span>: <span class="str">'test@example.com'</span>, <span class="field">name</span>: <span class="str">'Test User'</span> }
+  })
+
+  <span class="field">console</span>.<span class="field">log</span>(<span class="str">'✅ Seeded:'</span>, { <span class="field">tournament</span>: <span class="field">tournament</span>.<span class="field">name</span>, <span class="field">match</span>: <span class="field">match</span>.<span class="field">id</span> })
+}
+
+<span class="field">main</span>()
+  .<span class="field">catch</span>(<span class="field">console</span>.<span class="field">error</span>)
+  .<span class="field">finally</span>(() => <span class="field">prisma</span>.<span class="field">$disconnect</span>())</code></pre>
+
+  <p>Add to <code>package.json</code>:</p>
+  <pre><code><span class="str">"prisma"</span>: {
+  <span class="str">"seed"</span>: <span class="str">"ts-node prisma/seed.ts"</span>
+}</code></pre>
+
+  <p>Run with: <code>npx prisma db seed</code></p>
+
+  <!-- ===== SECTION 13 ===== -->
+  <h2 class="section" id="gotchas">13. Common Mistakes (Save Yourself Hours)</h2>
+
+  <table>
+    <thead><tr><th>Mistake</th><th>What Goes Wrong</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>Multiple <code>new PrismaClient()</code></td>
+        <td>Hits connection limit (Postgres max ~100 connections). App crashes under load.</td>
+        <td>Always use the singleton from <code>lib/prisma.ts</code></td>
+      </tr>
+      <tr>
+        <td>Missing <code>@@unique</code> on Prediction</td>
+        <td>Users can submit duplicate predictions. Scoring gives double points.</td>
+        <td>Always have <code>@@unique([userId, questionId])</code></td>
+      </tr>
+      <tr>
+        <td>Fetching all relations always</td>
+        <td>Leaderboard query fetches 10,000 predictions for every page load.</td>
+        <td>Use <code>select</code> to only get fields you need</td>
+      </tr>
+      <tr>
+        <td>Checking contest expiry on frontend only</td>
+        <td>User changes system clock, bypasses deadline.</td>
+        <td>Always check <code>contest.expiresAt &lt; new Date()</code> in the API route</td>
+      </tr>
+      <tr>
+        <td>Storing local timezone dates</td>
+        <td>Match shows wrong time for users in different timezones.</td>
+        <td>Always store UTC (<code>new Date().toISOString()</code>). Convert to local on display.</td>
+      </tr>
+      <tr>
+        <td>Editing migration files</td>
+        <td>Prisma migration history breaks. Schema and DB fall out of sync.</td>
+        <td>Never edit existing migrations. Create new ones.</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <!-- ===== SECTION 14 ===== -->
+  <h2 class="section" id="cursor">14. Using This Schema with Cursor</h2>
+
+  <p>Once you have your <code>schema.prisma</code> and have run <code>npx prisma generate</code>, Cursor becomes dramatically more powerful because it can see your exact types.</p>
+
+  <h3 class="sub">Best Cursor Prompts for Database Work</h3>
+
+  <div class="step">
+    <div class="step-title">Prompt template for API routes</div>
+    <pre><code>Using the Prisma schema in prisma/schema.prisma and the singleton 
+from src/lib/prisma.ts, create a Next.js App Router API route at 
+app/api/contests/[contestId]/predict/route.ts that:
+
+1. Accepts POST with body { questionId, answer }
+2. Gets the current user from Clerk session
+3. Checks the contest.expiresAt is in the future
+4. Upserts the prediction using @@unique([userId, questionId])
+5. Returns the saved prediction
+6. Returns 400 if contest is expired, 401 if not logged in</code></pre>
+  </div>
+
+  <div class="step">
+    <div class="step-title">Prompt template for React components</div>
+    <pre><code>Using the Prisma types from @prisma/client, create a TypeScript 
+React component ContestCard.tsx that:
+
+- Accepts props: contest: Contest & { questions: Question[], match: Match }
+- Shows match teams, date, and countdown timer to expiresAt
+- Lists each question with radio button options
+- Submit button calls POST /api/contests/{id}/predict
+- Disables form if contest.status !== 'OPEN'
+- Uses Tailwind CSS for styling</code></pre>
+  </div>
+
+  <div class="callout tip">
+    <div class="callout-title">✅ Pro Tip</div>
+    <p>After running <code>npx prisma generate</code>, import types directly from Prisma in your prompts: <code>import type { Contest, Question, User } from '@prisma/client'</code>. Cursor sees these types and generates code that perfectly matches your schema — no type mismatches.</p>
+  </div>
+
+  <div style="margin: 48px 0 24px; padding: 24px; background: linear-gradient(135deg, #1e2235, #16213e); border-radius: 12px; border: 1px solid #2d3148; text-align: center;">
+    <p style="color: #a5b4fc; font-size: 18px; font-weight: 700; margin-bottom: 8px;">You're ready to start</p>
+    <p style="color: #94a3b8;">Copy the full schema → run migrations → run the seed → open Cursor</p>
+    <p style="color: #94a3b8; margin-top: 8px;">Everything else follows from there.</p>
+  </div>
+
+</main>
+
+<script>
+  // Highlight active sidebar link on scroll
+  const sections = document.querySelectorAll('h2.section');
+  const links = document.querySelectorAll('.sidebar a');
+  window.addEventListener('scroll', () => {
+    let current = '';
+    sections.forEach(s => { if (window.scrollY >= s.offsetTop - 80) current = s.id; });
+    links.forEach(l => {
+      l.classList.remove('active');
+      if (l.getAttribute('href') === '#' + current) l.classList.add('active');
+    });
+  });
+</script>
+</body>
+</html>

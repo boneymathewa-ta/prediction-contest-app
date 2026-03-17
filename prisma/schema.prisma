@@ -1,0 +1,239 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// model Tournament {
+//   id        String           @id @default(cuid())
+//   name      String           @unique // "IPL 2026", "Cricket World Cup 2026"
+//   sport     Sport // enum: CRICKET or FOOTBALL
+//   startDate DateTime
+//   endDate   DateTime
+//   logoUrl   String? // optional — might not have logo yet
+//   status    TournamentStatus @default(UPCOMING)
+//   createdAt DateTime         @default(now())
+//   updatedAt DateTime         @updatedAt
+
+//   // Relations (we'll explain these below)
+//   matches      Match[]
+//   leaderboards Leaderboard[]
+// }
+
+// model Team {
+//   id           String  @id @default(cuid())
+//   name         String  @unique
+//   shortName    String // e.g., "LIV", "RMA"
+//   logoUrl      String?
+//   primaryColor String? // Optional: for UI styling
+
+//   // Relations: A team can be the 'Home' team in many matches
+//   homeMatches Match[] @relation("HomeTeam")
+//   awayMatches Match[] @relation("AwayTeam")
+// }
+
+// model Match {
+//   id           String     @id @default(cuid())
+//   tournamentId String
+//   tournament   Tournament @relation(fields: [tournamentId], references: [id])
+
+//   // Fix: Add the specific relation fields here
+//   homeTeamId String
+//   homeTeam   Team   @relation("HomeTeam", fields: [homeTeamId], references: [id])
+
+//   awayTeamId String
+//   awayTeam   Team   @relation("AwayTeam", fields: [awayTeamId], references: [id])
+
+//   matchDate  DateTime
+//   venue      String
+//   scoreTeamA Int?
+//   scoreTeamB Int?
+//   status     MatchStatus @default(SCHEDULED)
+
+//   createdAt DateTime  @default(now())
+//   updatedAt DateTime  @updatedAt
+//   contests  Contest[]
+// }
+model Tournament {
+  id           String           @id @default(cuid())
+  externalId   String?          @unique // Store TheSportsDB 'idLeague' here
+  name         String           @unique
+  sport        Sport
+  startDate    DateTime
+  endDate      DateTime
+  logoUrl      String?
+  status       TournamentStatus @default(UPCOMING)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  matches      Match[]
+  leaderboards Leaderboard[]
+}
+
+model Team {
+  id           String  @id @default(cuid())
+  externalId   String? @unique // Store TheSportsDB 'idTeam' here
+  name         String  @unique
+  shortName    String
+  logoUrl      String?
+  primaryColor String?
+  homeMatches  Match[] @relation("HomeTeam")
+  awayMatches  Match[] @relation("AwayTeam")
+}
+
+model Match {
+  id           String      @id @default(cuid())
+  externalId   String?     @unique // Store TheSportsDB 'idEvent' here
+  tournamentId String
+  tournament   Tournament  @relation(fields: [tournamentId], references: [id])
+  homeTeamId   String
+  homeTeam     Team        @relation("HomeTeam", fields: [homeTeamId], references: [id])
+  awayTeamId   String
+  awayTeam     Team        @relation("AwayTeam", fields: [awayTeamId], references: [id])
+  matchDate    DateTime
+  venue        String
+  scoreHome    Int? // Renamed for clarity with API (intHomeScore)
+  scoreAway    Int? // Renamed for clarity with API (intAwayScore)
+  status       MatchStatus @default(SCHEDULED)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  contests     Contest[]
+}
+
+// ... rest of your User, Contest, Questions models remain largely the same
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  password     String?
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  role         Roles         @default(USER)
+  predictions  Prediction[]
+  scores       Leaderboard[] // Relation to their points in different tournaments
+  participants Participant[]
+}
+
+model Participant {
+  id          String   @id @default(uuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  contestId   String
+  contest     Contest  @relation(fields: [contestId], references: [id])
+  totalPoints Int      @default(0)
+  answers     Answer[] // Link to the answers they submitted
+
+  @@unique([userId, contestId])
+}
+
+model Answer {
+  id            String      @id @default(uuid())
+  participantId String
+  participant   Participant @relation(fields: [participantId], references: [id])
+  questionId    String
+  question      Questions   @relation(fields: [questionId], references: [id])
+  answer        String
+  isCorrect     Boolean?
+  pointsEarned  Int         @default(0)
+}
+
+model Contest {
+  id           String        @id @default(cuid())
+  matchId      String
+  name         String
+  entryFee     Float
+  prizePool    Float
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  status       ContestStatus @default(OPEN)
+  // Relation back to Match
+  match        Match         @relation(fields: [matchId], references: [id])
+  questions    Questions[]
+  participants Participant[]
+}
+
+model Questions {
+  id            String           @id @default(cuid())
+  text          String
+  createdAt     DateTime         @default(now())
+  updatedAt     DateTime         @updatedAt
+  contestId     String
+  category      QuestionCategory @default(WINNER)
+  correctAnswer String?
+  pointValue    Int              @default(10)
+  options       String[]
+  contest       Contest          @relation(fields: [contestId], references: [id], onDelete: Cascade)
+  predictions   Prediction[]
+  answers       Answer[]
+}
+
+model Prediction {
+  id           String   @id @default(cuid())
+  userId       String
+  // contestId  String
+  questionId   String
+  answer       String
+  isCorrect    Boolean?
+  pointsEarned Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations back to User, Contest, and Questions
+  user     User      @relation(fields: [userId], references: [id])
+  // contest      Contest   @relation(fields: [contestId], references: [id])
+  question Questions @relation(fields: [questionId], references: [id])
+}
+
+model Leaderboard {
+  id           String     @id @default(cuid())
+  userId       String
+  user         User       @relation(fields: [userId], references: [id])
+  tournamentId String
+  tournament   Tournament @relation(fields: [tournamentId], references: [id])
+  totalPoints  Int        @default(0)
+
+  @@unique([userId, tournamentId]) // A user has only one entry per tournament
+}
+
+enum Sport {
+  CRICKET
+  FOOTBALL
+}
+
+enum TournamentStatus {
+  UPCOMING
+  ONGOING
+  COMPLETED
+}
+
+enum MatchStatus {
+  SCHEDULED
+  LIVE
+  FINISHED
+}
+
+enum Roles {
+  USER
+  ADMIN
+}
+
+enum ContestStatus {
+  OPEN
+  CLOSED
+  SETTLED
+}
+
+enum QuestionCategory {
+  WINNER
+  STATS
+  DISCIPLINE
+}
