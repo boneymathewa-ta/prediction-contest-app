@@ -144,6 +144,8 @@ model Answer {
   answer        String
   isCorrect     Boolean?
   pointsEarned  Int         @default(0)
+
+  @@unique([participantId, questionId])
 }
 
 model Contest {

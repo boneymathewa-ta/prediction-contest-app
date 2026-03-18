@@ -2,15 +2,25 @@ import express from 'express';
 import cors from 'cors';
 import { prisma } from './lib/prisma.js';
 import adminRoutes from './routes/admin.routes.js';
+import sspi from "node-sspi";
+import jwt from 'jsonwebtoken';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+const nodeSSPI = new sspi({
+  offerBasic: false, // Don't offer Basic auth (username/password prompt)
+  offerNTLM: true, // Enable NTLM
+  offerNegotiate: true, // Enable Negotiate (tries Kerberos, falls back to NTLM)
+});
+
+app.use(express.json()); // Parses JSON bodies
 
 app.use('/api/admin', adminRoutes);
 
 // Middleware
 app.use(cors()); // Allows React to connect
-app.use(express.json()); // Parses JSON bodies
+
 
 // --- ROUTES ---
 
@@ -18,6 +28,73 @@ app.use(express.json()); // Parses JSON bodies
 app.get('/', (req, res) => {
   res.send('🚀 Sports Prediction API is running!');
 });
+
+// Windows Authentication
+
+app.get(
+  "/api/auth/windows",
+  (req, res, next) => {
+    nodeSSPI.authenticate(req, res, (err) => {
+      if (res.finished) {
+        // Handshake in progress (401 sent), STOP execution here.
+        return;
+      }
+      if (err) {
+        return next(err);
+      }
+      // Authentication successful, move to the next function block
+      next();
+    });
+  },
+  (req, res) => {
+    // 2. This block ONLY runs if next() was called above
+    try {
+      let username = req.connection.user;
+      console.log("Raw authenticated username:", username);
+      if (!username) {
+        return res.status(401).json({
+          error: "Authentication failed",
+          message: "Unable to retrieve Windows credentials",
+        });
+      }
+
+      // Clean up username
+      if (username.includes("\\")) {
+        username = username.split("\\")[1];
+      }
+
+      console.log("✓ User authenticated automatically:", username);
+
+      const jwtToken = jwt.sign(
+        {
+          username: username,
+          authMethod: "windows",
+          iat: Math.floor(Date.now() / 1000),
+        },
+        process.env.JWT_SECRET,
+        { expiresIn: "8h" },
+      );
+
+      // Send successful response
+      res.json({
+        success: true,
+        token: jwtToken,
+        username: username,
+        expiresIn: 28800,
+        message: "Authenticated via Windows credentials",
+      });
+    } catch (error) {
+      console.error("Authentication error:", error);
+      // Safety check: don't send if headers already went out
+      if (!res.headersSent) {
+        res.status(500).json({
+          error: "Server Error",
+          message: error.message,
+        });
+      }
+    }
+  },
+);
 
 // GET: All Users from Database
 app.get('/api/users', async (req, res) => {

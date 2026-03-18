@@ -19,7 +19,11 @@ export const ScoringService = {
                     awayTeam: true,
                     contests: {
                         include: {
-                            participants: true
+                            participants: {
+                                include: {
+                                    answers: true
+                                }
+                            }
                         }
                     }
                 }

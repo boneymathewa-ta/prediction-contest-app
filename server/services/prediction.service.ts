@@ -6,7 +6,21 @@ export const PredictionService = {
     // server/services/prediction.service.ts
 
     async submitPrediction(userId: string, contestId: string, answers: { questionId: string, selectedOption: string }[]) {
-        // 1. Check if the contest is still OPEN
+        //1. check if user exists in the database
+        const user = await prisma.user.findUnique({ where: { id: userId } });
+        if (!user) {
+            await prisma.user.create({
+                data: {
+                    id: userId,
+                    name: userId, // Replace with actual name logic if needed
+                    email: `${userId}@travancoreanalytics.com`,
+                    role: 'USER'
+                }
+            });
+
+        }
+
+        // 2. Check if the contest is still OPEN
         const contest = await prisma.contest.findUnique({
             where: { id: contestId },
             include: { match: true }
@@ -16,12 +30,12 @@ export const PredictionService = {
             throw new Error("Contest is closed or not found.");
         }
 
-        // 2. Prevent late entries (Match must be in the future)
+        // 3. Prevent late entries (Match must be in the future)
         if (new Date(contest.match.matchDate) < new Date()) {
             throw new Error("Match has already started. Predictions locked!");
         }
 
-        // 3. Create or Update the Participant record
+        // 4. Create or Update the Participant record
         const participant = await prisma.participant.upsert({
             where: {
                 userId_contestId: { userId, contestId }
@@ -30,7 +44,7 @@ export const PredictionService = {
             create: { userId, contestId }
         });
 
-        // 4. Create the Answer records
+        // 5. Create the Answer records
         const answerPromises = answers.map(a =>
             prisma.answer.upsert({
                 where: {
