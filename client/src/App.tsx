@@ -3,6 +3,7 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import AddTournament from './admin/addtournament'
 import ViewTournament from './admin/viewtournament'
 import ContestDetails from './contest-details'
+import Leaderboard from './leaderboard'
 
 function App() {
 
@@ -17,6 +18,7 @@ function App() {
           <Route path="/admin/create-tournament" element={<AddTournament />} />
           <Route path="/admin/view-tournaments" element={<ViewTournament />} />
           <Route path="/contest/:id" element={<ContestDetails />} />
+          <Route path="/leaderboard" element={<Leaderboard />} />
         </Routes>
       </BrowserRouter>
       {/* <div>

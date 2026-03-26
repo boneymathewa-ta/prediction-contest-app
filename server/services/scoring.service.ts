@@ -40,8 +40,10 @@ export const ScoringService = {
                 // 3. For each participant in the contest, calculate points based on their answers and the final score
                 for (const participant of contest.participants) {
                     let pointsEarned = 0;
+                    let matchPoints = 0;
                     // Example scoring logic based on question categories
                     for (const answer of participant.answers) {
+
                         const question = await prisma.questions.findUnique({
                             where: { id: answer.questionId }
                         });
@@ -50,7 +52,7 @@ export const ScoringService = {
                         switch (question.category) {
                             case 'WINNER':
                                 const actualWinner = match.scoreHome > match.scoreAway ? match.homeTeam.name : match.awayTeam.name;
-                                if (answer.selectedOption === actualWinner) {
+                                if (answer.answer === actualWinner) {
                                     pointsEarned += question.pointValue;
                                 }
 
@@ -69,6 +71,8 @@ export const ScoringService = {
                         data: { totalPoints: participant.totalPoints + pointsEarned }
                     });
                     console.log(`Updated participant ${participant.id} with ${pointsEarned} points.`);
+
+
                 }
                 // 5. Optionally, determine winners and update contest status
                 await prisma.contest.update({
